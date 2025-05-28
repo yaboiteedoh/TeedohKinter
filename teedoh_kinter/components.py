@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 
 
-COMPONENTS = {}
 FILL = {
     'x': {
         'fill': tk.X,
@@ -21,6 +20,99 @@ FILL = {
         'sticky': None
     }
 }
+
+STATE_COMPONENTS = [
+    'Button',
+    'Checkbutton',
+    'Menubutton'
+]
+
+
+class Tk:
+    def __init__(
+        self,
+        title='teedoh-kinter project',
+        geometry='500x500',
+        x_scroll=True,
+        y_scroll=True
+    ):
+        self.root = tk.Tk()
+        self.root.title(title)
+        self.root.geometry(geometry)
+        self.canvas = self.configure_scrollbar(x_scroll, y_scroll)
+        self.window = Frame(parent=self, parent_frame=self.canvas)
+        self.window.pack()
+        self.canvas.create_window((0,0), window=self.window.tkinter, anchor='nw')
+        self.components = []
+
+
+    def configure_scrollbar(self, x_scroll, y_scroll):
+        container = tk.Frame(self.root)
+        container.pack(fill=tk.BOTH, expand=1)
+
+        canvas = tk.Canvas(container)
+
+        if y_scroll:
+            y_scrollbar = ttk.Scrollbar(
+                container,
+                orient=tk.VERTICAL,
+                command=canvas.yview
+            )
+            y_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            canvas.configure(yscrollcommand=y_scrollbar.set)
+
+        if x_scroll:
+            x_scrollbar = ttk.Scrollbar(
+                container,
+                orient=tk.HORIZONTAL,
+                command=canvas.xview
+            )
+            x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+            canvas.configure(xscrollcommand=x_scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        canvas.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
+        )
+
+        return canvas
+
+        
+    def update(self):
+        self.canvas.update_idletasks()
+        self.canvas.configure(
+            scrollregion=self.canvas.bbox('all')
+        )
+
+
+    def add_component(
+        self,
+        component_class,
+        parent_frame=None,
+        parent=None,
+        **kwargs
+    ):
+        if parent is not None:
+            parent = parent 
+        else:
+            parent = self
+        if parent_frame is not None:
+            parent_frame = parent_frame
+        else:
+            parent_frame = self.window.tkinter
+        component = component_class(parent=parent, parent_frame=parent_frame, fill=FILL['both'], **kwargs)
+        self.components.append(component)
+        return component
+
+
+    def pack(self):
+        for component in self.components:
+            component.pack()
+
+
+    def mainloop(self):
+        self.root.mainloop()
 
 
 class Component:
@@ -119,15 +211,12 @@ class Frame(Component):
 
     def add_component(
             self,
-            type,
+            component_class,
             parent=None,
             **kwargs
     ):
-        if not type in COMPONENTS:
-            raise NotImplementedError
-
-        parent = parent if parent else self
-        component = COMPONENTS[type](parent=parent, fill=self.fill_children, **kwargs)
+        parent = parent if parent is not None else self
+        component = component_class(parent=parent, fill=self.fill_children, **kwargs)
         self.components.append(component)
         return component
 
@@ -517,7 +606,7 @@ class RadioMenu(Frame):
         if isinstance(options, list):
             for text in options:
                 self.add_component(
-                    'radio_button',
+                    RadioButton,
                     text=text,
                     variable=self._value,
                     value=text
@@ -525,7 +614,7 @@ class RadioMenu(Frame):
         else:
             for text, value in options.items():
                 self.add_component(
-                    'radio_button',
+                    RadioButton,
                     text=text,
                     data_type=self.data_type,
                     value=value
@@ -575,11 +664,11 @@ class LabeledOption(Frame):
             self._value = self.add_var('str')
 
         self.label = self.add_component(
-            'label',
+            Label,
             text=text
         )
         self.menu = self.add_component(
-            'option_menu',
+            OptionMenu,
             variable=self._value,
             options=options,
             default=default
@@ -630,11 +719,11 @@ class LabeledEntry(Frame):
         )
         
         self.label = self.add_component(
-            'label',
+            Label,
             text=text
         )
         self.entry = self.add_component(
-            'entry',
+            Entry,
             default=default
         )
 
@@ -675,14 +764,14 @@ class ButtonMatrix(Frame):
         if isinstance(buttons, list):
             for text in buttons:
                 self.add_component(
-                    'button',
+                    Button,
                     text=text,
                     command=self._pass
                 )
         else:
             for text, command in buttons.items():
                 self.add_component(
-                    'button',
+                    Button,
                     text=text,
                     command=command
                 )
@@ -783,8 +872,3 @@ COMPONENTS = {
     'labeled_option': LabeledOption
 }
 
-STATE_COMPONENTS = [
-    'Button',
-    'Checkbutton',
-    'Menubutton'
-]
