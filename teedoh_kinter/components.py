@@ -1,3 +1,4 @@
+import math
 import tkinter as tk
 from tkinter import ttk
 
@@ -5,11 +6,11 @@ from tkinter import ttk
 FILL = {
     'x': {
         'fill': tk.X,
-        'sticky': tk.EW
+        'sticky': tk.W
     },
     'y': {
         'fill': tk.Y,
-        'sticky': tk.NS
+        'sticky': tk.N
     },
     'both': {
         'fill': tk.BOTH,
@@ -48,7 +49,7 @@ class Tk:
 
     def configure_scrollbar(self, x_scroll, y_scroll):
         container = tk.Frame(self.root)
-        container.pack(fill=tk.BOTH, expand=1)
+        container.pack(fill=tk.BOTH, expand=True)
 
         canvas = tk.Canvas(container)
 
@@ -70,7 +71,7 @@ class Tk:
             x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
             canvas.configure(xscrollcommand=x_scrollbar.set)
 
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         canvas.bind(
             '<Configure>',
             lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
@@ -89,8 +90,8 @@ class Tk:
     def add_component(
         self,
         component_class,
-        parent_frame=None,
         parent=None,
+        parent_frame=None,
         **kwargs
     ):
         if parent is not None:
@@ -122,17 +123,26 @@ class Component:
     def __init__(
         self,
         parent,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        padx=0,
+        pady=0,
+        parent_frame=None
     ):
         self.parent = parent
-        self.parent_frame = parent_frame if parent_frame else parent.tkinter
+        if parent_frame is not None:
+            print(self, parent_frame)
+            p = parent_frame
+        else:
+            p = parent.tkinter
+        self.parent_frame = p
         self.tkinter = None
         self.vars = []
         if not isinstance(fill, dict):
             self.fill = FILL[fill]
         else:
             self.fill = fill
+        self.padx = padx
+        self.pady = pady
 
 
     def add_var(self, data_type, default=None):
@@ -176,7 +186,11 @@ class Component:
                 sticky=self.fill['sticky']
             )
         else:
-            self.tkinter.pack(fill=self.fill['fill'])
+            self.tkinter.pack(
+                fill=self.fill['fill'],
+                padx=self.padx,
+                pady=self.pady
+            )
 
 
     def destroy(self):
@@ -192,13 +206,13 @@ class Frame(Component):
         grid_children=False,
         max_columns=None,
         update_func=None,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        parent_frame=None
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            parent_frame=parent_frame,
+            fill=fill
         )
 
         self.max_columns = max_columns
@@ -210,18 +224,25 @@ class Frame(Component):
         self.update_func = update_func
         self.cur_column = 0
         self.cur_row = 0
+        self.total_rows = 0
 
 
     def add_component(
             self,
             component_class,
             parent=None,
+            fill=None,
             **kwargs
     ):
         for c in COMPONENTS:
             if issubclass(component_class, c):
                 parent = parent if parent is not None else self
-                component = component_class(parent=parent, fill=self.fill_children, **kwargs)
+                if fill is not None:
+                    f = FILL[fill]
+                else:
+                    f = self.fill
+
+                component = component_class(parent=parent, fill=f, **kwargs)
                 self.components.append(component)
                 return component
         raise ValueError(f'Invalid Component Class passed to {self} during add_component call')
@@ -248,6 +269,28 @@ class Frame(Component):
 
     def pack(self, just_children=False, grid=None):
         if self.grid_children:
+            if not self.max_columns:
+                self.total_rows = len(self.components)
+            else:
+                self.total_rows = math.ceil(len(self.components) / self.max_columns)
+
+            if (
+                self.fill['fill'] == 'both'
+                or self.fill['fill'] == 'x'
+            ):
+                if not self.max_columns:
+                    for i in range(len(self.components) + 1):
+                        self.tkinter.columnconfigure(i, weight=1)
+                else:
+                    for i in range(self.max_columns + 1):
+                        self.tkinter.columnconfigure(i, weight=1)
+            if (
+                self.fill['fill'] == 'both'
+                or self.fill['fill'] == 'y'
+            ):
+                for i in range(self.total_rows + 1):
+                    self.tkinter.rowconfigure(i, weight=1)
+
             for component in self.components:
                 component.pack(
                     grid={
@@ -280,16 +323,16 @@ class Button(Component):
         parent,
         text,
         command,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        parent_frame=None
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            parent_frame=parent_frame,
+            fill=fill
         )
 
-        self.tkinter = tk.Button(
+        self.tkinter = ttk.Button(
             self.parent_frame,
             text=text,
             command=command
@@ -315,21 +358,21 @@ class Label(Component):
         self,
         parent,
         text,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        parent_frame=None
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            fill=fill,
+            parent_frame=parent_frame
         )
 
-        self.tkinter = tk.Label(
+        self.tkinter = ttk.Label(
             self.parent_frame,
-            text=text
+            text=text,
         )
 
-    
+
     @property
     def text(self):
         return self.tkinter.cget('text')
@@ -345,13 +388,13 @@ class Entry(Component):
         self,
         parent,
         default=None,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        parent_frame=None
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            fill=fill,
+            parent_frame=parent_frame
         )
 
         self.tkinter = ttk.Entry(
@@ -386,19 +429,19 @@ class CheckButton(Component):
         values=[False, True],
         command=None,
         custom_trace=None,
-        parent_frame=None,
-        fill='both'
+        fill='both',
+        parent_frame=None
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            fill=fill,
+            parent_frame=parent_frame
         )
 
         self._active = self.add_var('bool')
         self._value = self.add_var(data_type)
 
-        self.tkinter = tk.Checkbutton(
+        self.tkinter = ttk.Checkbutton(
             self.parent_frame,
             text=text,
             variable=self._active,
@@ -444,10 +487,10 @@ class CheckButton(Component):
     def _value_trace(self):
         self.update()
         if self._active.get():
-            if self._value.get() == self._off_value:
+            if self._value.get() != self._on_value:
                 self._value.set(self._on_value)
         else:
-            if self._value.get() == self._on_value:
+            if self._value.get() != self._off_value:
                 self._value.set(self._off_value)
         
 
@@ -472,9 +515,9 @@ class RadioButton(Component):
         fill='both'
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            fill=fill,
+            parent_frame=parent_frame
         )
 
         if not variable:
@@ -491,7 +534,7 @@ class RadioButton(Component):
         else:
             self._selection = value
         
-        self.tkinter = tk.Radiobutton(
+        self.tkinter = ttk.Radiobutton(
             self.parent_frame,
             text=text,
             variable=self._value,
@@ -523,9 +566,9 @@ class OptionMenu(Component):
         fill='both'
     ):
         super().__init__(
-            parent,
-            parent_frame,
-            fill
+            parent=parent,
+            parent_frame=parent_frame,
+            fill=fill
         )
 
         if variable:
@@ -591,13 +634,13 @@ class RadioMenu(Frame):
         fill='both'
     ):
         super().__init__(
-            parent,
-            fill_children,
-            grid_children,
-            max_columns,
-            update_func,
-            parent_frame,
-            fill
+            parent=parent,
+            fill_children=fill_children,
+            grid_children=grid_children,
+            max_columns=max_columns,
+            update_func=update_func,
+            parent_frame=parent_frame,
+            fill=fill,
         )
 
         self.data_type = data_type
@@ -656,13 +699,13 @@ class LabeledOption(Frame):
         fill='both'
     ):
         super().__init__(
-            parent,
-            fill_children,
-            grid_children,
-            max_columns,
-            update_func,
-            parent_frame,
-            fill
+            parent=parent,
+            fill_children=fill_children,
+            grid_children=grid_children,
+            max_columns=max_columns,
+            update_func=update_func,
+            parent_frame=parent_frame,
+            fill=fill
         )
         if variable:
             self._value = variable
@@ -715,13 +758,13 @@ class LabeledEntry(Frame):
         fill='both'
     ):
         super().__init__(
-            parent,
-            fill_children,
-            grid_children,
-            max_columns,
-            update_func,
-            parent_frame,
-            fill
+            parent=parent,
+            fill_children=fill_children,
+            grid_children=grid_children,
+            max_columns=max_columns,
+            update_func=update_func,
+            parent_frame=parent_frame,
+            fill=fill
         )
         
         self.label = self.add_component(
@@ -758,13 +801,13 @@ class ButtonMatrix(Frame):
         fill='both'
     ):
         super().__init__(
-            parent,
-            fill_children,
-            grid_children,
-            max_columns,
-            update_func,
-            parent_frame,
-            fill
+            parent=parent,
+            fill_children=fill_children,
+            grid_children=grid_children,
+            max_columns=max_columns,
+            update_func=update_func,
+            parent_frame=parent_frame,
+            fill=fill
         )
 
         if isinstance(buttons, list):
@@ -772,14 +815,16 @@ class ButtonMatrix(Frame):
                 self.add_component(
                     Button,
                     text=text,
-                    command=self._pass
+                    command=self._pass,
+                    fill='both'
                 )
         else:
             for text, command in buttons.items():
                 self.add_component(
                     Button,
                     text=text,
-                    command=command
+                    command=command,
+                    fill='both'
                 )
 
 
