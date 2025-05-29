@@ -101,9 +101,12 @@ class Tk:
             parent_frame = parent_frame
         else:
             parent_frame = self.window.tkinter
-        component = component_class(parent=parent, parent_frame=parent_frame, fill=FILL['both'], **kwargs)
-        self.components.append(component)
-        return component
+        for c in COMPONENTS:
+            if issubclass(component_class, c):
+                component = component_class(parent=parent, parent_frame=parent_frame, fill=FILL['both'], **kwargs)
+                self.components.append(component)
+                return component
+        raise ValueError(f'Invalid Component Class passed to {self} during add_component call')
 
 
     def pack(self):
@@ -215,10 +218,13 @@ class Frame(Component):
             parent=None,
             **kwargs
     ):
-        parent = parent if parent is not None else self
-        component = component_class(parent=parent, fill=self.fill_children, **kwargs)
-        self.components.append(component)
-        return component
+        for c in COMPONENTS:
+            if issubclass(component_class, c):
+                parent = parent if parent is not None else self
+                component = component_class(parent=parent, fill=self.fill_children, **kwargs)
+                self.components.append(component)
+                return component
+        raise ValueError(f'Invalid Component Class passed to {self} during add_component call')
 
 
     def update(self):
@@ -857,18 +863,17 @@ class DynamicComponentFrame(Frame):
         super().destroy()
 
 
-COMPONENTS = {
-    'button': Button,
-    'check_button': CheckButton,
-    'radio_button': RadioButton,
-    'option_menu': OptionMenu,
-    'label': Label,
-    'entry': Entry,
-    'frame': Frame,
-    'radio_menu': RadioMenu,
-    'labeled_entry': LabeledEntry,
-    'button_matrix': ButtonMatrix,
-    'dynamic_component_frame': DynamicComponentFrame,
-    'labeled_option': LabeledOption
-}
-
+COMPONENTS = [
+    Button,
+    CheckButton,
+    RadioButton,
+    OptionMenu,
+    Label,
+    Entry,
+    Frame,
+    RadioMenu,
+    LabeledEntry,
+    ButtonMatrix,
+    DynamicComponentFrame,
+    LabeledOption
+]
